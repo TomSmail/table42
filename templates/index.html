@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Add Mapbox CSS and JS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mapbox-gl-draw/1.4.2/mapbox-gl-draw.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mapbox-gl-draw/1.4.2/mapbox-gl-draw.min.css" />
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>table42</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f9f9f9;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .time-input, .map-container, .restaurant-list {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .time-input input {
+            font-size: 18px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            margin-top: 10px;
+            outline: none;
+        }
+
+        .restaurant-list button {
+            width: 100%;
+            background: linear-gradient(135deg, #f9f9f9, #ececec);
+            border: none;
+            border-radius: 15px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 16px;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+
+        .restaurant-list button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .nav-buttons button {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #007BFF, #0056b3);
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin: 5px;
+        }
+
+        .nav-buttons button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="page1">
+        <div class="time-input">
+            <div class="title">table|42</div>
+            <label for="meal-time">What time would you like to eat?</label>
+            <input type="time" id="meal-time" name="meal-time" value="19:10">
+            <div class="nav-buttons">
+                <button onclick="goToPage(2)">&gt;</button>
+            </div>
+        </div>
+    </div>
+
+     <!-- Page 2: Map Integration -->
+    <div class="container" id="page2" style="display:none;">
+        <div class="map-container">
+            <div class="title">table|42</div>
+            <p>Select your dining area on the map:</p>
+            <div id="map" style="width: 100%; height: 300px; border-radius: 15px;"></div>
+            <div class="nav-buttons">
+                <button onclick="goToPage(1)">&lt;</button>
+                <button onclick="confirmSelection()">&gt;</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="page3" style="display:none;">
+        <div class="restaurant-list">
+            <div class="title">table|42</div>
+            <p>Available restaurants:</p>
+            <button><span>Olle - KBBQ</span><span>&#128339;</span></button>
+            <button><span>Bab n Sul - KBBQ</span><span>&#128339;</span></button>
+            <button><span>Haidilao - Hot pot</span><span>&#128339;</span></button>
+            <div class="nav-buttons">
+                <button onclick="goToPage(2)">&lt;</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function goToPage(pageNumber) {
+            document.querySelectorAll('.container').forEach((page, index) => {
+                page.style.display = (index + 1 === pageNumber) ? 'block' : 'none';
+            });
+        }
+         mapboxgl.accessToken = 'pk.eyJ1IjoidG9tLXNtYWlsIiwiYSI6ImNsdGFyemUxazFmcDgybG03bW56ZTc0d3gifQ.iWzQyehvRTR5inI5Q4tp9g';
+
+        // Initialize the map
+        const map = new mapboxgl.Map({
+            container: 'map', // Container ID
+            style: 'mapbox://styles/mapbox/streets-v11', // Map style
+            center: [-0.1276, 51.5074], // Starting position [lng, lat] (example: London)
+            zoom: 12 // Starting zoom level
+        });
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Initialize Mapbox Draw for area selection
+        const draw = new MapboxDraw({
+            displayControlsDefault: false,
+            controls: {
+                polygon: true,
+                trash: true
+            }
+        });
+
+        // Add the draw controls to the map
+        map.addControl(draw);
+
+        // Handle area selection
+        function confirmSelection() {
+            const data = draw.getAll(); // Get selected map area
+            const diningTime = document.getElementById("meal-time").value; // Get dining time
+
+            if (data.features.length > 0 && diningTime) {
+                const mapSelection = data.features[0]; // Use the first selected feature
+                fetch("/filter-restaurants", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        map_selection: mapSelection,
+                        dining_time: diningTime
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert("Error: " + data.error);
+                        } else {
+                            // Populate the restaurant list with available restaurants
+                            const restaurantList = document.querySelector(".restaurant-list");
+                            restaurantList.innerHTML = "<div class='title'>table|42</div><p>Available restaurants:</p>";
+                            data.restaurants.forEach(restaurant => {
+                                const button = document.createElement("button");
+                                button.innerHTML = `<span>${restaurant.name}</span><span>&#128339;</span>`;
+                                restaurantList.appendChild(button);
+                            });
+                            goToPage(3); // Navigate to the restaurant list page
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error:", error);
+                        alert("Failed to fetch restaurants.");
+                    });
+            } else {
+                alert("Please select an area and provide a dining time.");
+            }
+        }
+
+    </script>
+</body>
+</html>
