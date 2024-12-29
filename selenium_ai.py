@@ -3,14 +3,34 @@ import tempfile
 import os 
 import base64
 import json
+import time
+from datetime import datetime
 from mistralai import Mistral
 from dotenv import load_dotenv
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+class TimeRange:
+    def __init__(self, start: datetime, end: datetime):
+        """
+        Initializes the TimeRange object with start and end times.
+        
+        :param start: The start time as a datetime.time object.
+        :param end: The end time as a datetime.time object.
+        """
+        self.start = start
+        self.end = end
+    
+    def get_end(self):
+        return self.end.strftime("%A, %B %d, %Y %H:%M")
+    
+    def get_start(self):
+        return self.start.strftime("%A, %B %d, %Y %H:%M")
 
 
 class WebsiteWalker:
@@ -39,18 +59,48 @@ class WebsiteWalker:
     
     def _load_page(self, url):
         self.driver.get(url)
-        wait = WebDriverWait(self.driver, 20)
-        return wait
+        # Wait 3 seconds for the website to load
+        time.sleep(3)
 
     def _click_button_by_label(self, label):
-        wait = WebDriverWait(self.driver, 20)
-        try:
-            button = wait.until(EC.presence_of_element_located((By.XPATH, f"//button[.//span[text()='{label}']]")))
-            button.click()
-            print(f"Button '{label}' clicked successfully.")
-        except Exception as e:
-            print(f"An error occurred while clicking the button '{label}': {e}")
+        permutations = self._generate_xpath_permutations(label.lower().capitalize())
+        for perm in permutations:
+            try:
+                print(f"Looking for button of html '{perm}'")
+                button = self.driver.find_element(By.XPATH, perm)
+                button.click()
+                print(f"Button '{perm}' clicked successfully.")
+                return True
+            except NoSuchElementException:
+                continue
+        print(f"No button with label permutations of '{label}' found.")
+        return False
 
+    def _generate_label_permutations(self, label):
+        """
+        Generates permutations of the given label.
+        
+        :param label: The label to generate permutations for.
+        :return: A list of permutations.
+        """
+        permutations = [label, label.lower().capitalize(), label.lower(), label.upper()]
+        return permutations
+
+    def _generate_xpath_permutations(self, label):
+        """
+        Generates permutations of the given label.
+        
+        :param label: The label to generate permutations for.
+        :return: A list of permutations.
+        """
+        permutations = [f"button[title='{label}']",
+                        f"//button[contains(text(), '{label}')]",
+                        f"//button[text()='{label}']",
+                        f"//button[.//span[text()='{label}']]",
+                        f"//a[text()='{label}']"
+                        ]
+        return permutations
+    
     def _close(self):
         self.driver.quit()
 
@@ -76,11 +126,13 @@ class WebsiteWalker:
             encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
         return encoded_string
     
-    def _get_button_to_next_page(self):
+    def _get_button_to_next_page_or_times(self, time_range: TimeRange) -> dict:
         """
+        Prerequisite: The website must be loaded.
+
         Gets the next page of the website.
         Updates the state of the drive to the next page.
-
+        
         :return: If the times were found, return the times. Otherwise, return None.
         """
 
@@ -99,7 +151,34 @@ class WebsiteWalker:
                 "content": [
                     {
                         "type": "text",
-                        "text": 'Analyze the following image and provide the available reservation times or the next button to click to reach the reservation page. The output should be in the format: { "available_times": [time1, time2], "next_button": null } or { "available_times": null, "next_button": <button_text> }. If there are no available times and no next button, return { "available_times": null, "next_button": null }. Do NOT include any other information in the output.'
+                        "text": '''
+                            Analyze the following image and provide the
+                            available reservation times or the next button to 
+                            click to reach the reservation page. The output
+                            should be in the format: 
+                            { "available_times": [time1, time2], 
+                                "next_button": null } 
+                            or 
+                            { "available_times": null,
+                                "next_button": <button_text> }.
+                            If there are no available times and no next button,
+                            return 
+                            { "available_times": null,
+                                "next_button": null } 
+                            ''' + 
+                            f'''
+                            The user is looking for a time between 
+                            {time_range.get_start()} and {time_range.get_end()}
+                            Do NOT include any other information in the output.
+                            Do NOT Include ```json``` in the output. 
+                            Here is an example of what should be output: 
+                            ''' + 
+                            '''
+                            {
+                            "available_times": null,
+                            "next_button": "BOOK A TABLE"
+                            }
+                            '''
                     },
                     {
                         "type": "image_url",
@@ -123,9 +202,103 @@ class WebsiteWalker:
             result = json.loads(raw_result)
         except Exception as e:
             print(f"An error occurred while converting the result to a dictionary: {e}")
-            return
+            return None
         print(result)
         return result
+    
+    def _get_times(self, time_range: TimeRange) -> list:
+        """
+        Prerequisite: The website must be loaded.
+
+        Finds the available times displayed on the webpage
+        
+        :return: If the times were found, return the times.
+        """
+
+        api_key = os.environ["MISTRAL_API_KEY"]
+        model = "pixtral-12b-2409"
+        client = Mistral(api_key=api_key)
+
+        # Get the image from the website
+        image_path = self._get_website_image()
+        encoded_image = self._encode_image_to_base64(image_path)
+        prompt = f'''
+                    Look at this image of a website reservation page,
+                    if I wanted to book this restaurant at between
+                    {time_range.get_start()} and {time_range.get_end()},
+                    then would I be able to given the information you 
+                    are given from the image? If you are able to then 
+                    return the possible times you could book. Eg, if it
+                    showed there was a table at 19:00 and 19:30
+                    then you should return ["19:00", "19:30"]. If its not
+                    possible to book the table between these times, then
+                    just return []. DO NOT return anything else in the 
+                    output. Please return in a 24 hour format 
+                '''
+        # Define the messages for the chat
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": f"data:image/jpeg;base64,{encoded_image}" 
+                    }
+                ]
+            }
+        ]
+
+        print(prompt)
+
+        # Get the chat response
+        chat_response = client.chat.complete(
+            model=model,
+            messages=messages
+        )
+
+        # Print the content of the response
+        raw_result = chat_response.choices[0].message.content
+        print(raw_result)
+        # Try to covert the result to a list
+        try:
+            result = json.loads(raw_result)
+        except json.JSONDecodeError:
+            print("An error occurred whilst converting string list to list")
+            result = []
+        return result
+
+    def _get_wait(self, seconds):
+        """
+        Returns a WebDriverWait object with the given number of seconds.
+        
+        :param seconds: The number of seconds to wait.
+        :return: The WebDriverWait object.
+        """
+        return WebDriverWait(self.driver, seconds)
+    
+    def _close_popups(self):
+        """
+        Closes any popups that appear on the webpage.
+        """
+        try:
+            popup_selectors = [
+                "Reject all",
+                "Close",
+                "No thanks",
+                "Agree",
+                "Accept",
+                "Got it",
+            ]
+
+            for selector in popup_selectors:
+                self._click_button_by_label(selector)
+
+        except Exception as e:
+            print(f"An error occurred while closing popups: {e}")
         
     def walk_website(self, url):
         """
@@ -137,21 +310,29 @@ class WebsiteWalker:
         depth = 0
         notFound = True
         available_times = []
-
+        wait = self._load_page(url)
         while (notFound and depth < 5):
-            # TODO: Implement the website walking logic here.
-            if available_times:
+            print("Inside while loop")
+            page_dict = self._get_button_to_next_page_or_times()
+            print(f"Page dict: {page_dict}")
+            if page_dict.get("available_times"):
+                available_times = page_dict["available_times"]
                 notFound = False
+            elif page_dict.get("next_button"):
+                self._click_button_by_label(page_dict["next_button"], wait)
             else:
-                depth += 1
-        
+                print("No available times or next button found.")
+                return []
         return available_times
+
 
 if __name__ == "__main__":
     driver_path = '/opt/homebrew/bin/chromedriver'
-    url = 'https://www.losmochis.co.uk'
-
+    url = "https://www.opentable.co.uk/restref/client/?rid=243468&restref=243468&lang=en-GB&color=8&r3uid=cfe&dark=false&notifyme=true&partysize=2&datetime=2024-12-26T19%3A00&ot_source=Restaurant%20website&logo_pid=0&background_pid=62183916&font=arial&ot_logo=subtle&primary_color=fcf8f5&primary_font_color=333333&button_color=bababa&button_font_color=333333&corrid=01306157-0746-4aed-bea4-80eb6e441149"
     selenium_ai = WebsiteWalker(driver_path=driver_path, headless=False)
     selenium_ai._load_page(url)
-    selenium_ai._get_button_to_next_page()
+    # selenium_ai._close_popups()
+    time_range = TimeRange(datetime(2024, 12, 28, 19), datetime(2024, 12, 28, 20))
+    page_dict = selenium_ai._get_times(time_range=time_range)
+    print(page_dict)
     selenium_ai._close()
