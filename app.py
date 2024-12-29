@@ -23,8 +23,8 @@ def filter_restaurants():
     """
     data = request.json
     dining_time = data.get("dining_time")
-    selected_area = data.get("map_selection")  # This is the GeoJSON from the frontend.
-
+    selected_area = data.get("map_selection")  
+    print(selected_area)
     if not dining_time or not selected_area:
         return jsonify({"error": "Invalid input"}), 400
 

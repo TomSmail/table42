@@ -1,6 +1,7 @@
 import requests
 from dotenv import load_dotenv
 import os
+from pprint import pprint
 
 class GoogleRestaurantInfo:
     """
@@ -86,6 +87,25 @@ class GoogleRestaurantInfo:
         for website in websites:
             print(website)
         return websites
+    
+    def get_details_from_queries(self, queries):
+        """
+        Searches for places using the provided queries and fetches their details.
+        
+        :param queries: A list of search queries for the places.
+        :return: A list of place details.
+        """
+        place_ids = []
+        for query in queries:
+            place_id = self.search_place(query)
+            if place_id:
+                place_ids.append(place_id)
+        place_details = []
+        for place_id in place_ids:
+            details = self._fetch_place_details(place_id)
+            if details:
+                place_details.append(details)
+        return place_details
 
 
 if __name__ == "__main__":
@@ -94,6 +114,8 @@ if __name__ == "__main__":
     # Example queries for places
     queries = [
         'Los Mochis London City',
-        'Los Mochis Notting Hill'
     ]
-    google_maps_api.get_websites_from_queries(queries)
+    result = google_maps_api.get_details_from_queries(queries)
+    pprint(result)
+
+    pprint(result[0]['geometry']['location'])
