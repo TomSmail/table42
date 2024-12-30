@@ -8,7 +8,7 @@ from datetime import datetime
 from mistralai import Mistral
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -66,11 +66,20 @@ class WebsiteWalker:
         permutations = self._generate_xpath_permutations(label.lower().capitalize())
         for perm in permutations:
             try:
-                print(f"Looking for button of html '{perm}'")
+                print(f"Looking for button with HTML '{perm}'")
                 button = self.driver.find_element(By.XPATH, perm)
-                button.click()
-                print(f"Button '{perm}' clicked successfully.")
-                return True
+                if button.is_displayed() and button.is_enabled():
+                    button.click()
+                    print(f"Button '{perm}' clicked successfully.")
+                    return True
+                else:
+                    # Check if the parent node is interactable and click it
+                    print(f"Button '{perm}' is not interactable. Checking parent node.")
+                    parent = button.find_element(By.XPATH, "..")
+                    if parent.is_displayed() and parent.is_enabled():
+                        parent.click()
+                        print(f"Parent of button '{perm}' clicked successfully.")
+                        return True
             except NoSuchElementException:
                 continue
         print(f"No button with label permutations of '{label}' found.")
@@ -126,12 +135,13 @@ class WebsiteWalker:
             encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
         return encoded_string
     
-    def _get_button_to_next_page_or_times(self, time_range: TimeRange) -> dict:
+    def _get_button_to_next_page_or_times(self, time_range: TimeRange = TimeRange(datetime(datetime.now().year, datetime.now().month, datetime.now().day, 1), datetime(datetime.now().year, datetime.now().month, datetime.now().day, 23))) -> dict:
         """
         Prerequisite: The website must be loaded.
 
         Gets the next page of the website.
         Updates the state of the drive to the next page.
+        The default time range is from 1am to 11pm and is disgusting. 
         
         :return: If the times were found, return the times. Otherwise, return None.
         """
@@ -188,11 +198,15 @@ class WebsiteWalker:
             }
         ]
 
-        # Get the chat response
-        chat_response = client.chat.complete(
-            model=model,
-            messages=messages
-        )
+        try:
+            # Get the chat response
+            chat_response = client.chat.complete(
+                model=model,
+                messages=messages
+            )
+        except Exception as e:
+            print(f"An error occurred while getting the chat response: {e}")
+            return None
 
         # Print the content of the response
         raw_result = chat_response.choices[0].message.content
@@ -310,18 +324,22 @@ class WebsiteWalker:
         depth = 0
         notFound = True
         available_times = []
-        wait = self._load_page(url)
         while (notFound and depth < 5):
             print("Inside while loop")
             page_dict = self._get_button_to_next_page_or_times()
+            # Check if an error has occurred
+            if page_dict is None:
+                print("No page dict found.")
+                return []
             print(f"Page dict: {page_dict}")
             if page_dict.get("available_times"):
                 available_times = page_dict["available_times"]
                 notFound = False
             elif page_dict.get("next_button"):
-                self._click_button_by_label(page_dict["next_button"], wait)
+                self._click_button_by_label(page_dict["next_button"])
             else:
                 print("No available times or next button found.")
+                # Early stopping
                 return []
         return available_times
 
