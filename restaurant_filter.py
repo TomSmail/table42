@@ -1,7 +1,14 @@
 from pprint import pprint
 
+from google_restaurant_info import GoogleRestaurantInfo
+from selenium_ai import WebsiteWalker
+
 class RestaurantFilter:
     def __init__(self, restaurants):
+        """
+        Restaurant list should be a list of dictionaries gathered from the 
+        Google Places API.
+        """
         self.restaurants = restaurants
 
     def filter(self, criteria):
@@ -40,14 +47,21 @@ class RestaurantFilter:
         return self.filter(criteria)
     
     def filter_by_time(self, dining_time):
-        pass
-        # TODO: Implement this method
-        # def criteria(restaurant):
-        #     open_time = datetime.datetime.strptime(restaurant["open_time"], "%H:%M").time()
-        #     close_time = datetime.datetime.strptime(restaurant["close_time"], "%H:%M").time()
-        #     return open_time <= dining_time <= close_time
-        
-        # return self.filter(criteria)
+        """
+        TODO: Check if dining time is in the same format as restaurant_times
+        """
+        def criteria(restaurant):
+            walker = WebsiteWalker()
+            google_maps_api = GoogleRestaurantInfo()
+            info = google_maps_api.get_details_from_queries([restaurant['name']])
+            if info[0].get('website'):
+                restaurant_times = walker.walk_website(info[0]['website'])
+            else:
+                # If the website is not available, we can't get the restaurant times
+                return False
+            return dining_time in restaurant_times
+            
+        return self.filter(criteria)
 
 if __name__ == "__main__":
     # Example data
@@ -116,5 +130,5 @@ if __name__ == "__main__":
     filtered_restaurants = restaurant_filter.filter_by_area(selected_area['geometry']['coordinates'][0])
     pprint(filtered_restaurants)
     # Filter restaurants by time
-    # filtered_restaurants = restaurant_filter.filter_by_time("18:00")
-    # pprint(filtered_restaurants)
+    filtered_restaurants = restaurant_filter.filter_by_time("18:00")
+    pprint(filtered_restaurants)
