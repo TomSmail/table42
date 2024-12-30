@@ -34,6 +34,18 @@ class TestRestaurantFilter(unittest.TestCase):
                         "lng": -0.12389412811535294
                     }
                 }
+            },
+            {
+                "name": "Shitshack",
+                "cuisine": "Caribean",
+                "open_time": "12:00",
+                "close_time": "23:00",
+                "geometry": {
+                    "location": {
+                        "lat": 51.60146071399152,
+                        "lng": -0.16597578408775803
+                    }
+                }
             }
         ]
         self.selected_area = {
@@ -50,6 +62,56 @@ class TestRestaurantFilter(unittest.TestCase):
         self.assertEqual(len(filtered_restaurants), 2)
         self.assertEqual(filtered_restaurants[0]['name'], "Olle - KBBQ")
         self.assertEqual(filtered_restaurants[1]['name'], "Bab n Sul - KBBQ")
+
+    def test_filter_by_area_convex(self):
+        """
+        0####
+        0#X0#
+        We want to test if the point with the X in is regarded as inside the polygon.
+        """
+        coordinates = [[1, 0], [1, 2], [5, 2], [5, 0], [4, 0], [4, 1], [2, 1], [2, 0], [1, 0]]
+        # coordinates = [[1,1], [1,10], [11,10], [11,1]]
+        restaurants = [
+            {
+                "name": "Restaurant 1",
+                "cuisine": "Food",
+                "open_time": "17:00",
+                "close_time": "23:00",
+                "geometry": {
+                    "location": {
+                        "lat": 3,
+                        "lng": 0
+                    }
+                }
+            }
+        ]
+        restaurant_filter = RestaurantFilter(restaurants)
+        filtered_restaurants = restaurant_filter.filter_by_area(coordinates)
+        self.assertEqual(len(filtered_restaurants), 0)
+
+    def test_filter_by_area_square(self):
+        """
+        Tests if a point in a polygon is regarded as inside the polygon.
+        """
+        coordinates = [[1,1], [1,10], [11,10], [11,1]]
+        restaurants = [
+            {
+                "name": "Restaurant 1",
+                "cuisine": "Food",
+                "open_time": "17:00",
+                "close_time": "23:00",
+                "geometry": {
+                    "location": {
+                        "lat": 5,
+                        "lng": 5
+                    }
+                }
+            }
+        ]
+        restaurant_filter = RestaurantFilter(restaurants)
+        filtered_restaurants = restaurant_filter.filter_by_area(coordinates)
+        self.assertEqual(len(filtered_restaurants), 1)
+        
 
     # def test_filter_by_time(self):
     #     dining_time = datetime.strptime("18:00", "%H:%M").time()
