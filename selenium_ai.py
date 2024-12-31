@@ -4,6 +4,7 @@ import os
 import base64
 import json
 import time
+import logging
 from datetime import datetime
 from mistralai import Mistral
 from dotenv import load_dotenv
@@ -15,6 +16,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+# Configure logging
+logging.basicConfig(filename='all.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class TimeRange:
     def __init__(self, start: datetime, end: datetime):
@@ -67,23 +70,22 @@ class WebsiteWalker:
         permutations = self._generate_xpath_permutations(label.lower().capitalize())
         for perm in permutations:
             try:
-                print(f"Looking for button with HTML '{perm}'")
                 button = self.driver.find_element(By.XPATH, perm)
                 if button.is_displayed() and button.is_enabled():
                     button.click()
-                    print(f"Button '{perm}' clicked successfully.")
+                    logging.info(f"Button '{perm}' clicked successfully.")
                     return True
                 else:
                     # Check if the parent node is interactable and click it
-                    print(f"Button '{perm}' is not interactable. Checking parent node.")
+                    logging.info(f"Button '{perm}' is not interactable. Checking parent node.")
                     parent = button.find_element(By.XPATH, "..")
                     if parent.is_displayed() and parent.is_enabled():
                         parent.click()
-                        print(f"Parent of button '{perm}' clicked successfully.")
+                        logging.info(f"Parent of button '{perm}' clicked successfully.")
                         return True
             except NoSuchElementException:
                 continue
-        print(f"No button with label permutations of '{label}' found.")
+        logging.info(f"No button with label permutations of '{label}' found.")
         return False
 
     def _generate_label_permutations(self, label):
@@ -130,10 +132,10 @@ class WebsiteWalker:
             # Create a temporary file and save as temp img
             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_img:
                 self.driver.save_screenshot(temp_img.name)
-                print(f"Temporary PNG created at: {temp_img.name}")
+                logging.info(f"Temporary PNG created at: {temp_img.name}")
                 return temp_img.name
         except Exception as e:
-            print(f"An error occurred while extracting png link: {e}")
+            logging.warning(f"An error occurred while extracting png link: {e}")
             return None
 
     def _encode_image_to_base64(self, image_path):
@@ -217,19 +219,16 @@ class WebsiteWalker:
                 messages=messages
             )
         except Exception as e:
-            print(f"An error occurred while getting the chat response: {e}")
+            logging.warning(f"An error occurred while getting the chat response: {e}")
             return None
 
-        # Print the content of the response
         raw_result = chat_response.choices[0].message.content
-        print(raw_result)
         # Try to covert the result to a dictionary
         try:
             result = json.loads(raw_result)
         except Exception as e:
-            print(f"An error occurred while converting the result to a dictionary: {e}")
+            logging.warning(f"An error occurred while converting the result to a dictionary: {e}")
             return None
-        print(result)
         return result
     
     def _get_times(self, time_range: TimeRange = TimeRange(datetime(datetime.now().year, datetime.now().month, datetime.now().day, 1), datetime(datetime.now().year, datetime.now().month, datetime.now().day, 23))) -> list:
@@ -278,7 +277,7 @@ class WebsiteWalker:
             }
         ]
 
-        print(prompt)
+        logging.debug(prompt)
 
         # Get the chat response
         chat_response = client.chat.complete(
@@ -288,12 +287,12 @@ class WebsiteWalker:
 
         # Print the content of the response
         raw_result = chat_response.choices[0].message.content
-        print(raw_result)
+        logging.debug(raw_result)
         # Try to covert the result to a list
         try:
             result = json.loads(raw_result)
         except json.JSONDecodeError:
-            print("An error occurred whilst converting string list to list")
+            logging.warning("An error occurred whilst converting string list to list")
             result = []
         return result
 
@@ -312,6 +311,7 @@ class WebsiteWalker:
         """
         try:
             popup_selectors = [
+                "Decline all",
                 "Reject all",
                 "Close",
                 "No thanks",
@@ -324,7 +324,7 @@ class WebsiteWalker:
                 self._click_button_by_label(selector)
 
         except Exception as e:
-            print(f"An error occurred while closing popups: {e}")
+            logging.warning(f"An error occurred while closing popups: {e}")
         
     def walk_website(self, url):
         """
@@ -339,22 +339,21 @@ class WebsiteWalker:
         # IMPORTANT: PAGE MUST BE LOADED 
         self._load_page(url)
         while (notFound and depth < 5):
-            print("Inside while loop")
             depth += 1
             self._close_popups()
             page_dict = self._get_button_to_next_page_or_times()
             # Check if an error has occurred
             if page_dict is None:
-                print("No page dict found.")
+                logging.warning("No page dict found.")
                 return []
-            print(f"Page dict: {page_dict}")
+            logging.debug(f"Page dict: {page_dict}")
             if page_dict.get("available_times"):
                 available_times = page_dict["available_times"]
                 notFound = False
             elif page_dict.get("next_button"):
                 self._click_button_by_label(page_dict["next_button"])
             else:
-                print("No available times or next button found.")
+                logging.warning("No available times or next button found.")
                 # Early stopping
                 return []
         return available_times
@@ -363,9 +362,9 @@ class WebsiteWalker:
 if __name__ == "__main__":
     driver_path = '/opt/homebrew/bin/chromedriver'
     url = "https://www.opentable.co.uk/restref/client/?rid=243468&restref=243468&lang=en-GB&color=8&r3uid=cfe&dark=false&notifyme=true&partysize=2&datetime=2024-12-26T19%3A00&ot_source=Restaurant%20website&logo_pid=0&background_pid=62183916&font=arial&ot_logo=subtle&primary_color=fcf8f5&primary_font_color=333333&button_color=bababa&button_font_color=333333&corrid=01306157-0746-4aed-bea4-80eb6e441149"
-    selenium_ai = WebsiteWalker(driver_path=driver_path, headless=False)
+    selenium_ai = WebsiteWalker(driver_path=driver_path, headless=True)
     selenium_ai._load_page(url)
     # selenium_ai._close_popups()
-    page_dict = selenium_ai._get_times()
+    page_dict = selenium_ai.walk_website(url)
     print(page_dict)
     selenium_ai._close()

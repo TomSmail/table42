@@ -1,5 +1,10 @@
 from flask import Flask, request, jsonify, render_template
 import datetime
+import logging
+
+# Configure logging
+logging.basicConfig(filename='all.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 app = Flask(__name__)
 
@@ -24,7 +29,7 @@ def filter_restaurants():
     data = request.json
     dining_time = data.get("dining_time")
     selected_area = data.get("map_selection")  
-    print(selected_area)
+    logging.debug(selected_area)
     if not dining_time or not selected_area:
         return jsonify({"error": "Invalid input"}), 400
 

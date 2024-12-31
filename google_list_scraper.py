@@ -4,6 +4,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import logging
+
+# Configure logging
+logging.basicConfig(filename='all.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class GoogleMapsScraper:
@@ -40,9 +44,9 @@ class GoogleMapsScraper:
         try:
             button = wait.until(EC.presence_of_element_located((By.XPATH, f"//button[.//span[text()='{label}']]")))
             button.click()
-            print(f"Button '{label}' clicked successfully.")
+            logging.info(f"Button '{label}' clicked successfully.")
         except Exception as e:
-            print(f"An error occurred while clicking the button '{label}': {e}")
+            logging.warning(f"An error occurred while clicking the button '{label}': {e}")
 
     def _extract_restaurant_names(self):
         wait = WebDriverWait(self.driver, 20)
@@ -52,7 +56,7 @@ class GoogleMapsScraper:
             restaurant_names = [element.text for element in restaurant_elements]
             return restaurant_names
         except Exception as e:
-            print(f"An error occurred while extracting restaurant names: {e}")
+            logging.warning(f"An error occurred while extracting restaurant names: {e}")
             return []
 
     def _close(self):

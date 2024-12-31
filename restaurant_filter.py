@@ -1,8 +1,12 @@
 from pprint import pprint
-
+import logging
 from google_list_scraper import GoogleMapsScraper
 from google_restaurant_info import GoogleRestaurantInfo
 from selenium_ai import WebsiteWalker
+
+# Configure logging
+logging.basicConfig(filename='all.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class RestaurantFilter:
     def __init__(self, restaurants):
@@ -57,12 +61,12 @@ class RestaurantFilter:
             info = google_maps_api.get_details_from_queries([restaurant['name']])
             
             if info[0].get('website'):
-                print(f"Walking website of {restaurant['name']}")
-                print(info[0]['website'])
+                logging.info(f"Walking website of {restaurant['name']}")
+                logging.info(info[0]['website'])
                 restaurant_times = walker.walk_website(info[0]['website'])
             else:
                 # If the website is not available, we can't get the restaurant times
-                print(f"Could not get the website for {restaurant['name']}")
+                logging.warning(f"Could not get the website for {restaurant['name']}")
                 return False
             return dining_time in restaurant_times
             
@@ -87,10 +91,10 @@ if __name__ == "__main__":
 
     # Create a RestaurantFilter object
     restaurant_filter = RestaurantFilter(restaurants)
-    
+    print(len(restaurants))
     # Filter restaurants by area
     filtered_restaurants = restaurant_filter.filter_by_area(selected_area['geometry']['coordinates'][0])
-    pprint(filtered_restaurants)
+    print(len(filtered_restaurants))
     # Filter restaurants by time
     filtered_restaurants = restaurant_filter.filter_by_time("18:00")
-    pprint(filtered_restaurants)
+    print(len(filtered_restaurants))

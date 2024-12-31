@@ -2,6 +2,10 @@ import requests
 from dotenv import load_dotenv
 import os
 from pprint import pprint
+import logging
+
+# Configure logging
+logging.basicConfig(filename='all.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class GoogleRestaurantInfo:
     """
@@ -30,10 +34,10 @@ class GoogleRestaurantInfo:
             if data.get('status') == 'OK' and data.get('candidates'):
                 return data['candidates'][0]['place_id']
             else:
-                print(f"Error searching for place: {data.get('status')}")
+                logging.warning(f"Error searching for place: {data.get('status')}")
                 return None
         else:
-            print(f"Failed to retrieve the page. Status code: {response.status_code}")
+            logging.warning(f"Failed to retrieve the page. Status code: {response.status_code}")
             return None
 
     def _fetch_place_details(self, place_id):
@@ -50,10 +54,10 @@ class GoogleRestaurantInfo:
             if data.get('status') == 'OK':
                 return data.get('result')
             else:
-                print(f"Error fetching place details: {data.get('status')}")
+                logging.warning(f"Error fetching place details: {data.get('status')}")
                 return None
         else:
-            print(f"Failed to retrieve the page. Status code: {response.status_code}")
+            logging.warning(f"Failed to retrieve the page. Status code: {response.status_code}")
             return None
 
     def _fetch_websites_from_ids(self, place_ids):
@@ -66,7 +70,7 @@ class GoogleRestaurantInfo:
         websites = []
         for place_id in place_ids:
             place_details = self._fetch_place_details(place_id)
-            print(place_details)
+            logging.debug(place_details)
             if place_details and 'website' in place_details:
                 websites.append(place_details['website'])
         return websites
@@ -84,8 +88,7 @@ class GoogleRestaurantInfo:
             if place_id:
                 place_ids.append(place_id)
         websites = self._fetch_websites_from_ids(place_ids)
-        for website in websites:
-            print(website)
+        logging.info(f"Found {len(websites)} websites.")
         return websites
     
     def get_details_from_queries(self, queries):
