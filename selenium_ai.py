@@ -15,6 +15,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+
 class TimeRange:
     def __init__(self, start: datetime, end: datetime):
         """
@@ -115,6 +116,17 @@ class WebsiteWalker:
 
     def _get_website_image(self):
         try:
+            # Ensure the page is fully loaded by waiting for a specific element
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+
+            # Maximize the browser window
+            self.driver.maximize_window()
+            
+            # Scroll to the top of the page
+            self.driver.execute_script("window.scrollTo(0, 0);")
+            
             # Create a temporary file and save as temp img
             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_img:
                 self.driver.save_screenshot(temp_img.name)
@@ -220,7 +232,7 @@ class WebsiteWalker:
         print(result)
         return result
     
-    def _get_times(self, time_range: TimeRange) -> list:
+    def _get_times(self, time_range: TimeRange = TimeRange(datetime(datetime.now().year, datetime.now().month, datetime.now().day, 1), datetime(datetime.now().year, datetime.now().month, datetime.now().day, 23))) -> list:
         """
         Prerequisite: The website must be loaded.
 
@@ -324,8 +336,12 @@ class WebsiteWalker:
         depth = 0
         notFound = True
         available_times = []
+        # IMPORTANT: PAGE MUST BE LOADED 
+        self._load_page(url)
         while (notFound and depth < 5):
             print("Inside while loop")
+            depth += 1
+            self._close_popups()
             page_dict = self._get_button_to_next_page_or_times()
             # Check if an error has occurred
             if page_dict is None:
@@ -350,7 +366,6 @@ if __name__ == "__main__":
     selenium_ai = WebsiteWalker(driver_path=driver_path, headless=False)
     selenium_ai._load_page(url)
     # selenium_ai._close_popups()
-    time_range = TimeRange(datetime(2024, 12, 28, 19), datetime(2024, 12, 28, 20))
-    page_dict = selenium_ai._get_times(time_range=time_range)
+    page_dict = selenium_ai._get_times()
     print(page_dict)
     selenium_ai._close()

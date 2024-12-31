@@ -1,5 +1,6 @@
 from pprint import pprint
 
+from google_list_scraper import GoogleMapsScraper
 from google_restaurant_info import GoogleRestaurantInfo
 from selenium_ai import WebsiteWalker
 
@@ -54,10 +55,14 @@ class RestaurantFilter:
             walker = WebsiteWalker()
             google_maps_api = GoogleRestaurantInfo()
             info = google_maps_api.get_details_from_queries([restaurant['name']])
+            
             if info[0].get('website'):
+                print(f"Walking website of {restaurant['name']}")
+                print(info[0]['website'])
                 restaurant_times = walker.walk_website(info[0]['website'])
             else:
                 # If the website is not available, we can't get the restaurant times
+                print(f"Could not get the website for {restaurant['name']}")
                 return False
             return dining_time in restaurant_times
             
@@ -65,56 +70,13 @@ class RestaurantFilter:
 
 if __name__ == "__main__":
     # Example data
-    restaurants = [
-        {
-            "name": "Olle - KBBQ",
-            "cuisine": "Korean",
-            "open_time": "17:00",
-            "close_time": "23:00",
-            "geometry": {
-                "location": {
-                    "lat": 51.512069,
-                    "lng": -0.131557
-                }
-            }
-        },
-        {
-            "name": "Bab n Sul - KBBQ",
-            "cuisine": "Korean",
-            "open_time": "16:00",
-            "close_time": "22:00",
-            "geometry": {
-                "location": {
-                    "lat": 51.51187820780646,
-                    "lng": -0.12389412811535294
-                }
-            }
-        },
-        {
-            "name": "Haidilao - Hot Pot",
-            "cuisine": "Chinese",
-            "open_time": "12:00",
-            "close_time": "23:00",
-            "geometry": {
-                "location": {
-                    "lat": 51.50146071399152,
-                    "lng": -0.12483826577778245
-                }
-            }
-        },
-        {
-            "name": "Shitshack",
-            "cuisine": "Caribean",
-            "open_time": "12:00",
-            "close_time": "23:00",
-            "geometry": {
-                "location": {
-                    "lat": 51.60146071399152,
-                    "lng": -0.16597578408775803
-                }
-            }
-        }
-    ]
+    url = 'https://maps.app.goo.gl/SS8F4pbUHVw29FRv6'
+
+    scraper = GoogleMapsScraper()
+    restaurant_names = scraper.get_restaurant_names(url)
+    google_maps_api = GoogleRestaurantInfo()
+    restaurants = google_maps_api.get_details_from_queries(restaurant_names)
+    
     selected_area = {
                     'id': '24c303aa50e7a8a6da996d724dc49ddf',
                     'type': 'Feature', 'properties': {},
