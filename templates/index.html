@@ -106,6 +106,10 @@
         }
 
         .loading-wheel {
+            display: none; /* Hidden by default */
+            position: fixed;
+            left: 50%;
+            top: 50%;
             background-color: #3498db;
             display: none;
             width: 32px;
@@ -114,6 +118,7 @@
             background: var(--_g), var(--_g), var(--_g), var(--_g);
             background-size: 40% 40%;
             animation: l46 1s infinite;
+            z-index: 1000;
         }
         @keyframes l46 {
             0%  {background-position: 0 0      ,100% 0,100% 100%,0 100%}
