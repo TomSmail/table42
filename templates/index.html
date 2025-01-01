@@ -104,47 +104,87 @@
             transform: translateY(-3px);
             box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
         }
+
+        .loading-wheel {
+            background-color: #3498db;
+            display: none;
+            width: 32px;
+            aspect-ratio: 1;
+            --_g: no-repeat radial-gradient(farthest-side,#000 90%,#0000);
+            background: var(--_g), var(--_g), var(--_g), var(--_g);
+            background-size: 40% 40%;
+            animation: l46 1s infinite;
+        }
+        @keyframes l46 {
+            0%  {background-position: 0 0      ,100% 0,100% 100%,0 100%}
+            40%,
+            50% {background-position: 100% 100%,100% 0,0    0   ,0 100%}
+            90%,
+            100%{background-position: 100% 100%,0 100%,0    0   ,100% 0}
+            }
+
+        .blur-background {
+            filter: blur(5px);
+            pointer-events: none; /* Prevent interactions with blurred content */
+        }
     </style>
 </head>
+
 <body>
-    <div class="container" id="page1">
-        <div class="time-input">
-            <div class="title">table|42</div>
-            <label for="meal-time">What time would you like to eat?</label>
-            <input type="time" id="meal-time" name="meal-time" value="19:10">
-            <div class="nav-buttons">
-                <button onclick="goToPage(2)">&gt;</button>
+    <div id="content">
+        <div class="container" id="page1">
+            <div class="time-input">
+                <div class="title">table|42</div>
+                <label for="meal-time">What time would you like to eat?</label>
+                <input type="time" id="meal-time" name="meal-time" value="19:10">
+                <div class="nav-buttons">
+                    <button onclick="goToPage(2)">&gt;</button>
+                </div>
             </div>
         </div>
-    </div>
 
-     <!-- Page 2: Map Integration -->
-    <div class="container" id="page2" style="display:none;">
-        <div class="map-container">
-            <div class="title">table|42</div>
-            <p>Select your dining area on the map:</p>
-            <div id="map" style="width: 100%; height: 300px; border-radius: 15px;"></div>
-            <div class="nav-buttons">
-                <button onclick="goToPage(1)">&lt;</button>
-                <button onclick="confirmSelection()">&gt;</button>
+        <!-- Page 2: Map Integration -->
+        <div class="container" id="page2" style="display:none;">
+            <div class="map-container">
+                <div class="title">table|42</div>
+                <p>Select your dining area on the map:</p>
+                <div id="map" style="width: 100%; height: 300px; border-radius: 15px;"></div>
+                <div class="nav-buttons">
+                    <button onclick="goToPage(1)">&lt;</button>
+                    <button onclick="confirmSelection()">&gt;</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="container" id="page3" style="display:none;">
-        <div class="restaurant-list">
-            <div class="title">table|42</div>
-            <p>Available restaurants:</p>
-            <button><span>Olle - KBBQ</span><span>&#128339;</span></button>
-            <button><span>Bab n Sul - KBBQ</span><span>&#128339;</span></button>
-            <button><span>Haidilao - Hot pot</span><span>&#128339;</span></button>
-            <div class="nav-buttons">
-                <button onclick="goToPage(2)">&lt;</button>
+        <div class="container" id="page3" style="display:none;">
+            <div class="restaurant-list">
+                <div class="title">table|42</div>
+                <p>Available restaurants:</p>
+                <button><span>Olle - KBBQ</span><span>&#128339;</span></button>
+                <button><span>Bab n Sul - KBBQ</span><span>&#128339;</span></button>
+                <button><span>Haidilao - Hot pot</span><span>&#128339;</span></button>
+                <div class="nav-buttons">
+                    <button onclick="goToPage(2)">&lt;</button>
+                </div>
             </div>
         </div>
     </div>
+    <!-- Loading wheel element -->
+    <div class="loading-wheel" id="loadingWheel"></div>
 
     <script>
+
+        // COde to show and hide the loading wheel
+        function showLoadingWheel() {
+            document.getElementById('loadingWheel').style.display = 'block';
+            document.getElementById('content').classList.add('blur-background');
+        }
+
+        function hideLoadingWheel() {
+            document.getElementById('loadingWheel').style.display = 'none';
+            document.getElementById('content').classList.remove('blur-background');
+        }
+
         function goToPage(pageNumber) {
             document.querySelectorAll('.container').forEach((page, index) => {
                 page.style.display = (index + 1 === pageNumber) ? 'block' : 'none';
@@ -182,6 +222,8 @@
 
             if (data.features.length > 0 && diningTime) {
                 const mapSelection = data.features[0]; // Use the first selected feature
+                showLoadingWheel();
+                console.log("Loading wheel shown");
                 fetch("/filter-restaurants", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -209,6 +251,9 @@
                     .catch(error => {
                         console.error("Error:", error);
                         alert("Failed to fetch restaurants.");
+                    })
+                    .finally(() => {
+                        hideLoadingWheel();
                     });
             } else {
                 alert("Please select an area and provide a dining time.");
