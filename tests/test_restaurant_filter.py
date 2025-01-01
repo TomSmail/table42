@@ -112,13 +112,5 @@ class TestRestaurantFilter(unittest.TestCase):
         filtered_restaurants = restaurant_filter.filter_by_area(coordinates)
         self.assertEqual(len(filtered_restaurants), 1)
         
-
-    # def test_filter_by_time(self):
-    #     dining_time = datetime.strptime("18:00", "%H:%M").time()
-    #     filtered_restaurants = self.restaurant_filter.filter_by_time(dining_time)
-    #     self.assertEqual(len(filtered_restaurants), 2)
-    #     self.assertEqual(filtered_restaurants[0]['name'], "Olle - KBBQ")
-    #     self.assertEqual(filtered_restaurants[1]['name'], "Bab n Sul - KBBQ")
-
 if __name__ == "__main__":
     unittest.main()
