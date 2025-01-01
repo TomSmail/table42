@@ -2,18 +2,14 @@ from flask import Flask, request, jsonify, render_template
 import datetime
 import logging
 
+from google_list_scraper import GoogleMapsScraper
+from google_restaurant_info import GoogleRestaurantInfo
+from restaurant_filter import RestaurantFilter
+
 # Configure logging
 logging.basicConfig(filename='all.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 app = Flask(__name__)
-
-# Test data
-RESTAURANTS = [
-    {"name": "Olle - KBBQ", "cuisine": "Korean", "open_time": "17:00", "close_time": "23:00"},
-    {"name": "Bab n Sul - KBBQ", "cuisine": "Korean", "open_time": "16:00", "close_time": "22:00"},
-    {"name": "Haidilao - Hot Pot", "cuisine": "Chinese", "open_time": "12:00", "close_time": "23:00"},
-]
 
 @app.route("/")
 def index():
@@ -29,25 +25,31 @@ def filter_restaurants():
     data = request.json
     dining_time = data.get("dining_time")
     selected_area = data.get("map_selection")  
-    logging.debug(selected_area)
+
     if not dining_time or not selected_area:
         return jsonify({"error": "Invalid input"}), 400
 
     # Parse dining time
     dining_time = datetime.datetime.strptime(dining_time, "%H:%M").time()
 
+    # Grab the restaurant names from the Google Maps URL
+    url = 'https://maps.app.goo.gl/SS8F4pbUHVw29FRv6'
+    scraper = GoogleMapsScraper()
+    restaurant_names = scraper.get_restaurant_names(url)
+    google_maps_api = GoogleRestaurantInfo()
+    restaurants = google_maps_api.get_details_from_queries(restaurant_names)
+
     # Filter restaurants based on time
-    available_restaurants = []
-    for restaurant in RESTAURANTS:
-        open_time = datetime.datetime.strptime(restaurant["open_time"], "%H:%M").time()
-        close_time = datetime.datetime.strptime(restaurant["close_time"], "%H:%M").time()
-        if open_time <= dining_time <= close_time:
-            available_restaurants.append(restaurant)
+    restaurant_filter = RestaurantFilter(restaurants)
+    logging.info(f"Number of restaurants before filtering: {len(restaurants)}")
+    # Filter restaurants by area
+    filtered_restaurants = restaurant_filter.filter_by_area(selected_area['geometry']['coordinates'][0])
+    logging.info(f"Number of restaurants after area filtering: {len(filtered_restaurants)}")
+    # Filter restaurants by time
+    filtered_restaurants = restaurant_filter.filter_by_time(dining_time)
+    logging.info(f"Number of restaurants after area and time filtering: {len(filtered_restaurants)}")
 
-    # Placeholder: You can filter based on the `selected_area` GeoJSON here.
-    # Example: Check if the restaurant is within the selected area (requires GIS library like Shapely).
-
-    return jsonify({"restaurants": available_restaurants})
+    return jsonify({"restaurants": filtered_restaurants}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
