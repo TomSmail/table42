@@ -116,7 +116,7 @@ class WebsiteWalker:
     def _close(self):
         self.driver.quit()
 
-    def _get_website_image(self):
+    def _get_website_image(self, permanent=False, save_path='website.png'):
         try:
             # Ensure the page is fully loaded by waiting for a specific element
             WebDriverWait(self.driver, 10).until(
@@ -129,15 +129,37 @@ class WebsiteWalker:
             # Scroll to the top of the page
             self.driver.execute_script("window.scrollTo(0, 0);")
             
-            # Create a temporary file and save as temp img
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_img:
-                self.driver.save_screenshot(temp_img.name)
-                logging.info(f"Temporary PNG created at: {temp_img.name}")
-                return temp_img.name
+            # Create a file and save as img
+            if permanent:
+                self.driver.save_screenshot(save_path)
+                logging.info(f"Permanent Screenshot saved at: {save_path}")
+                return save_path
+            else:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_img:
+                    self.driver.save_screenshot(temp_img.name)
+                    logging.info(f"Temporary PNG created at: {temp_img.name}")
+                    return temp_img.name
         except Exception as e:
             logging.warning(f"An error occurred while extracting png link: {e}")
             return None
 
+    def _get_website_html(self, save_path='website.html'):
+        try:
+            # Ensure the page is fully loaded by waiting for a specific element
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+
+            # Get the html of the page
+            html = self.driver.page_source
+            with open(save_path, "w") as file:
+                file.write(html)
+            logging.info(f"HTML saved at: {save_path}")
+            return save_path
+        except Exception as e:
+            logging.warning(f"An error occurred while extracting html link: {e}")
+            return None
+        
     def _encode_image_to_base64(self, image_path):
         """
         Encodes a local image to base64 format.

@@ -19,6 +19,9 @@ class TestRestaurantFilter(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
 
     def test_button_getting(self):
+        """
+        This test may randomly fail due to the AI
+        """
         url = 'http://127.0.0.1:5000'
         walker = WebsiteWalker()
 
