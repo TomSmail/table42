@@ -49,6 +49,7 @@ class WebsiteWalker:
         self.driver_path = driver_path
         self.headless = headless
         self.driver = self._setup_driver()
+        self.incorrect_button_labels = []
     
     def _setup_driver(self):
         chrome_options = Options()
@@ -86,7 +87,8 @@ class WebsiteWalker:
                         return True
             except NoSuchElementException:
                 continue
-        logging.info(f"No button with label permutations of '{label}' found.")
+        logging.info(f"No button with label permutations of '{label}' found, adding it to the list of incorrect buttons.")
+        self.incorrect_button_labels.append(label)
         return False
 
     def _generate_label_permutations(self, label):
@@ -207,6 +209,8 @@ class WebsiteWalker:
         image_path = self._get_website_image()
         encoded_image = self._encode_image_to_base64(image_path)
 
+        logging.info("Currently these are the incorrect button labels: " + str(self.incorrect_button_labels))
+
         # Define the messages for the chat
         messages = [
             {
@@ -241,6 +245,10 @@ class WebsiteWalker:
                             "available_times": null,
                             "next_button": "BOOK A TABLE"
                             }
+                            '''
+                            +
+                            f'''
+                            {"These buttons have been tried and are not the correct next_button: " + str(self.incorrect_button_labels) if self.incorrect_button_labels else ""}
                             '''
                     },
                     {
@@ -385,9 +393,16 @@ class WebsiteWalker:
                 available_times = page_dict["available_times"]
                 notFound = False
             elif page_dict.get("next_button"):
+                num_pages = len(self.driver.window_handles)
                 self._click_button_by_label(page_dict["next_button"])
-                # Switch to the newly opened tab
-                self.driver.switch_to.window(self.driver.window_handles[-1])
+                if num_pages != len(self.driver.window_handles):
+                    logging.info("New tab opened.")
+                    # Switch to the newly opened tab
+                    self.driver.switch_to.window(self.driver.window_handles[-1])
+                    # Wipe the incorrect button labels
+                    self.incorrect_button_labels = []
+                else:
+                    logging.info("No new tab opened.")
             else:
                 logging.warning("No available times or next button found.")
                 # Early stopping
