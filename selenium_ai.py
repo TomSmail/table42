@@ -6,6 +6,7 @@ import json
 import time
 import logging
 from datetime import datetime
+from PIL import Image
 from mistralai import Mistral
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -116,7 +117,15 @@ class WebsiteWalker:
     def _close(self):
         self.driver.quit()
 
-    def _get_website_image(self, permanent=False, save_path='website.png'):
+    def _get_website_image(self, permanent=False, save_path='website.png', quality=10):
+        """
+        Gets a screenshot of the website and compresses it.
+        :param permanent: If True, the image will be saved permanently.
+        :param save_path: The path to save the image.
+        :param quality: The quality of the compressed image. 1-100 (100 is best).
+        :return: The path to the compressed image.
+        """
+
         try:
             # Ensure the page is fully loaded by waiting for a specific element
             WebDriverWait(self.driver, 10).until(
@@ -133,12 +142,20 @@ class WebsiteWalker:
             if permanent:
                 self.driver.save_screenshot(save_path)
                 logging.info(f"Permanent Screenshot saved at: {save_path}")
-                return save_path
             else:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_img:
                     self.driver.save_screenshot(temp_img.name)
                     logging.info(f"Temporary PNG created at: {temp_img.name}")
-                    return temp_img.name
+                    save_path = temp_img.name
+
+            # Open the image using Pillow
+            image = Image.open(save_path)
+            
+            # Compress the image
+            compressed_path = save_path.replace(".png", "_compressed.jpg")
+            image.save(compressed_path, "JPEG", quality=quality)
+            logging.info(f"Compressed image saved at: {compressed_path}")
+            return compressed_path
         except Exception as e:
             logging.warning(f"An error occurred while extracting png link: {e}")
             return None
@@ -236,6 +253,7 @@ class WebsiteWalker:
 
         try:
             # Get the chat response
+            logging.info("Getting the chat response.")
             chat_response = client.chat.complete(
                 model=model,
                 messages=messages
@@ -332,19 +350,13 @@ class WebsiteWalker:
         Closes any popups that appear on the webpage.
         """
         try:
-            popup_selectors = [
-                "Decline all",
-                "Reject all",
-                "Close",
-                "No thanks",
-                "Agree",
-                "Accept",
-                "Got it",
-            ]
-
-            for selector in popup_selectors:
-                self._click_button_by_label(selector)
-
+             # Wait for the alert to be present
+            WebDriverWait(self.driver, 1).until(EC.alert_is_present())
+            
+            # Switch to the alert and dismiss it
+            alert = self.driver.switch_to.alert
+            alert.dismiss()
+            logging.info("Alert dismissed successfully.")
         except Exception as e:
             logging.warning(f"An error occurred while closing popups: {e}")
         
@@ -374,6 +386,8 @@ class WebsiteWalker:
                 notFound = False
             elif page_dict.get("next_button"):
                 self._click_button_by_label(page_dict["next_button"])
+                # Switch to the newly opened tab
+                self.driver.switch_to.window(self.driver.window_handles[-1])
             else:
                 logging.warning("No available times or next button found.")
                 # Early stopping
@@ -383,10 +397,8 @@ class WebsiteWalker:
 
 if __name__ == "__main__":
     driver_path = '/opt/homebrew/bin/chromedriver'
-    url = "https://www.opentable.co.uk/restref/client/?rid=243468&restref=243468&lang=en-GB&color=8&r3uid=cfe&dark=false&notifyme=true&partysize=2&datetime=2024-12-26T19%3A00&ot_source=Restaurant%20website&logo_pid=0&background_pid=62183916&font=arial&ot_logo=subtle&primary_color=fcf8f5&primary_font_color=333333&button_color=bababa&button_font_color=333333&corrid=01306157-0746-4aed-bea4-80eb6e441149"
-    selenium_ai = WebsiteWalker(driver_path=driver_path, headless=True)
-    selenium_ai._load_page(url)
-    # selenium_ai._close_popups()
+    url = "https://losmochis.co.uk"
+    selenium_ai = WebsiteWalker(driver_path=driver_path, headless=False)
     page_dict = selenium_ai.walk_website(url)
     print(page_dict)
     selenium_ai._close()
