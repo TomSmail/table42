@@ -5,6 +5,7 @@ import base64
 import json
 import time
 import logging
+import concurrent.futures
 from datetime import datetime
 from PIL import Image
 from mistralai import Mistral
@@ -16,6 +17,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+from prompt_storage import PromptStorage
 
 # Configure logging
 logging.basicConfig(filename='all.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -212,62 +215,30 @@ class WebsiteWalker:
         encoded_image = self._encode_image_to_base64(image_path)
 
         logging.info("Currently these are the incorrect button labels: " + str(self.incorrect_button_labels))
-
+        content = PromptStorage.get("image_1", 
+                    time_range=time_range, 
+                    encoded_image=encoded_image, 
+                    incorrect_button_labels=self.incorrect_button_labels
+                    )
         # Define the messages for the chat
         messages = [
             {
                 "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": '''
-                            Analyze the following image and provide the
-                            available reservation times or the next button to 
-                            click to reach the reservation page. The output
-                            should be in the format: 
-                            { "available_times": [time1, time2], 
-                                "next_button": null } 
-                            or 
-                            { "available_times": null,
-                                "next_button": <button_text> }.
-                            If there are no available times and no next button,
-                            return 
-                            { "available_times": null,
-                                "next_button": null } 
-                            ''' + 
-                            f'''
-                            The user is looking for a time between 
-                            {time_range.get_start()} and {time_range.get_end()}
-                            Do NOT include any other information in the output.
-                            Do NOT Include ```json``` in the output. 
-                            Here is an example of what should be output: 
-                            ''' + 
-                            '''
-                            {
-                            "available_times": null,
-                            "next_button": "BOOK A TABLE"
-                            }
-                            '''
-                            +
-                            f'''
-                            {"These buttons have been tried and are not the correct next_button: " + str(self.incorrect_button_labels) if self.incorrect_button_labels else ""}
-                            '''
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": f"data:image/jpeg;base64,{encoded_image}" 
-                    }
-                ]
+                "content": content
             }
         ]
 
+        def get_chat_response():
+            return client.chat.complete(model=model, messages=messages)
+
         try:
-            # Get the chat response
-            logging.info("Getting the chat response.")
-            chat_response = client.chat.complete(
-                model=model,
-                messages=messages
-            )
+            # Use ThreadPoolExecutor to run the function with a timeout
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(get_chat_response)
+                chat_response = future.result(timeout=10)  # Timeout after 10 seconds
+        except concurrent.futures.TimeoutError:
+            logging.warning("The chat response took too long and timed out.")
+            return None
         except Exception as e:
             logging.warning(f"An error occurred while getting the chat response: {e}")
             return None
@@ -276,6 +247,7 @@ class WebsiteWalker:
         # Try to covert the result to a dictionary
         try:
             result = json.loads(raw_result)
+            logging.info(f"Model Response: {result}")
         except Exception as e:
             logging.warning(f"An error occurred while converting the result to a dictionary: {e}")
             return None
@@ -414,7 +386,7 @@ class WebsiteWalker:
 
 if __name__ == "__main__":
     driver_path = '/opt/homebrew/bin/chromedriver'
-    url = "https://losmochis.co.uk"
+    url = "https://www.opentable.com/r/eleven-madison-park-new-york"
     selenium_ai = WebsiteWalker(driver_path=driver_path, headless=False)
     page_dict = selenium_ai.walk_website(url)
     print(page_dict)
