@@ -65,8 +65,10 @@ class WebsiteWalker:
     
     def _load_page(self, url):
         self.driver.get(url)
-        # Wait 3 seconds for the website to load
-        time.sleep(3)
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+        logging.info(f"Page loaded: {url}")
 
     def _click_button_by_label(self, label):
         permutations = self._generate_xpath_permutations(label.lower().capitalize())
