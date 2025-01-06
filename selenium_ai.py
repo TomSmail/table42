@@ -53,6 +53,7 @@ class WebsiteWalker:
         self.headless = headless
         self.driver = self._setup_driver()
         self.incorrect_button_labels = []
+        self.cached_urls = {}
     
     def _setup_driver(self):
         chrome_options = Options()
@@ -352,6 +353,12 @@ class WebsiteWalker:
         depth = 0
         notFound = True
         available_times = []
+        original_url = url
+        if url in self.cached_urls:
+            # Use the cached URL if it exists
+            url = self.cached_urls[url]
+            logging.info(f"Using cached reservation page URL: {url}")
+            
         # IMPORTANT: PAGE MUST BE LOADED 
         self._load_page(url)
         while (notFound and depth < 5):
@@ -365,6 +372,10 @@ class WebsiteWalker:
             logging.debug(f"Page dict: {page_dict}")
             if page_dict.get("available_times"):
                 available_times = page_dict["available_times"]
+                logging.info(f"Available times found: {available_times}")
+                # Save the location of the reservation page
+                self.cached_urls[original_url] = self.driver.current_url
+                logging.info(f"Reservation page URL saved: {self.driver.current_url}")
                 notFound = False
             elif page_dict.get("next_button"):
                 num_pages = len(self.driver.window_handles)
@@ -386,7 +397,7 @@ class WebsiteWalker:
 
 if __name__ == "__main__":
     driver_path = '/opt/homebrew/bin/chromedriver'
-    url = "https://www.opentable.com/r/eleven-madison-park-new-york"
+    url = "https://anglothai.co.uk"
     selenium_ai = WebsiteWalker(driver_path=driver_path, headless=False)
     page_dict = selenium_ai.walk_website(url)
     print(page_dict)
