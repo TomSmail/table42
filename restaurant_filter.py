@@ -33,10 +33,7 @@ class RestaurantFilter:
             test_line = {'lat1': lat, 'lng1': lng, 'lat2': 0.0, 'lng2': 0.0}
             sides = []
             prev = coordinates[0]
-            for i in range(len(coordinates)):
-                if i == 0:
-                    # Skip the first point as its prev
-                    continue
+            for i in range(1, len(coordinates)):
                 side = {'lat1': prev[1], 'lng1': prev[0], 'lat2': coordinates[i][1], 'lng2': coordinates[i][0]}
                 prev = coordinates[i]
                 sides.append(side)
